@@ -1,0 +1,32 @@
+﻿dataset: MSL
+data_path: ../data/MSL
+ts_nums: all
+seeds: [42]
+outdir: ./runs/msl_full
+
+window_size: 128
+step_size: 1
+downsample_factor: 1
+downsample_method: stride
+val_ratio: 0.2
+split_seed: 42
+batch_size: 128
+
+hidden: 128
+latent_dim: 48
+dropout: 0.1
+nhead: 4
+num_layers: 2
+
+lr: 0.001
+epochs: 10
+readout_window: 129
+
+
+k_neighbors: 20
+tau_quantile: 0.95
+softplus_temp: 1.0
+check_finite_grad: false
+device: cuda
+amp: false
+

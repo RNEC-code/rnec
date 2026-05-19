@@ -1,0 +1,17 @@
+runs/
+summary_tables/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+logs_run_all_*.out.log
+logs_run_all_*.err.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+*.pt
+*.pth
+*.ckpt
