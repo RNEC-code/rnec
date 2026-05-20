@@ -4,15 +4,7 @@ This is a minimal release package for reproducing the five-dataset RNEC
 experiments with the Performer autoencoder backbone.
 
 RNEC is a post-training reference-guided calibration layer over a trained AE.
-It reports four score families:
 
-- `AE`
-- `AE+max129`
-- `AE+Calibration`
-- `AE+Calibration+max129`
-
-The package intentionally excludes backbone-generalization experiments,
-diagnostic sweeps, figure-generation scripts, and older RRA/event-gate branches.
 
 ## Directory Layout
 
@@ -106,12 +98,5 @@ summary_tables/five_dataset_method_summary.csv
 summary_tables/five_dataset_method_average.csv
 ```
 
-## Protocol Notes
 
-- AE epochs: 10.
-- Window size: 128.
-- Fixed temporal readout: `max129`.
-- Calibration defaults: `k=20`, `q=0.95`, `softplus_temp=1.0`.
-- Alpha is selected on labeled validation windows.
-- Validation-threshold F1 and test best-threshold/oracle F1 are separate.
-- Oracle F1 is diagnostic separability, not deployment threshold transfer.
+
