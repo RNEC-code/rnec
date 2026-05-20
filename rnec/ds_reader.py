@@ -7,10 +7,6 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 
 
-# =========================================================
-# 轻量滑窗 Dataset：不再全量缓存 [N, C, W]，改为按需切片
-# =========================================================
-
 class SlidingWindowTrainDataset(Dataset):
     def __init__(self, data, window_size, step_size=1, starts=None):
         # data: [C, T]
@@ -58,9 +54,6 @@ class SlidingWindowEvalDataset(Dataset):
         return x, y
 
 
-# =========================================================
-# 通用窗口起点与窗口级标签辅助
-# =========================================================
 
 def _build_window_starts(total_length, window_size, step_size):
     total_length = int(total_length)
@@ -191,12 +184,7 @@ def _split_val_test_wadi_indices(pos_mask, val_ratio, preserve_segments=True, se
     return val_idx, test_idx
 
 def _split_val_test_indices_legacy(pos_mask, val_ratio, seed=42):
-    """
-    严格复刻旧版非 WADI 的 split 逻辑：
-    - 先得到完整测试窗口上的正/负窗口索引；
-    - 使用 RandomState(seed) + choice 做分层随机抽样；
-    - 行为与旧版 ds_reader 保持一致。
-    """
+
     total_samples = int(len(pos_mask))
     if total_samples == 0:
         return np.empty((0,), dtype=np.int64), np.empty((0,), dtype=np.int64)
@@ -324,10 +312,7 @@ def _load_split_cache_policy(path, default="reuse"):
 def _get_or_create_legacy_compatible_split(*, dataset_name_is_wadi, data_path, dataset_key, series_name,
                                            window_size, step_size, val_ratio, all_test_starts, pos_mask,
                                            downsample_factor=1, downsample_method="stride", split_seed=42):
-    """
-    默认策略：所有数据集统一使用旧版分层随机窗口划分。
-    cache 文件名包含策略名，避免复用早期 WADI segment-preserving cache。
-    """
+
     policy = "legacy_stratified_window_all_datasets"
     split_cache_path = _build_split_cache_path(
         data_path=data_path,
@@ -377,9 +362,7 @@ def _get_or_create_legacy_compatible_split(*, dataset_name_is_wadi, data_path, d
 
 
 
-# =========================================================
-# 主 Loader
-# =========================================================
+
 
 class Dataset_Loader():
     def __init__(self, dataset, data_path, window_size, ts_num, step_size, val_ratio=0.2,
@@ -392,7 +375,6 @@ class Dataset_Loader():
         if dataset_norm not in supported:
             raise ValueError('this dataset is not supported')
 
-        # 统一键名，兼容大小写输入
         if dataset_norm == 'msl':
             self.dataset_key = 'MSL'
         elif dataset_norm == 'smap':
@@ -414,7 +396,6 @@ class Dataset_Loader():
 
         self.series_name = str(dataset)
 
-        # 单序列数据集：只允许 ts_num=0
         single_series_datasets = {'swat', 'wadi', 'psm', 'msds', 'pd', 'gesture', 'nab'}
         if self.dataset_key in single_series_datasets and self.ts_num != 0:
             raise IndexError(f"{self.dataset_key} is a single-series dataset; only ts_num=0 is valid.")
@@ -435,7 +416,7 @@ class Dataset_Loader():
                 raise IndexError("ucr ts_num out of range")
             self.series_name = self.ucr_dataset_name[self.ts_num]
 
-        # -------- MSL：只保留 MSL 自己的 27 个实体 --------
+
         if self.dataset_key == 'MSL':
             self.msl_dataset_name = ['D-16', 'T-4', 'T-5', 'F-7', 'M-3', 'M-4',
               'P-15', 'C-1', 'T-12', 'T-13', 'F-4', 'F-5', 'D-14', 'T-9',
@@ -444,7 +425,7 @@ class Dataset_Loader():
                 raise IndexError("MSL ts_num out of range")
             self.series_name = self.msl_dataset_name[self.ts_num]
 
-        # -------- SMAP：独立接口，按唯一文件名去重后的实体 --------
+
         if self.dataset_key == 'SMAP':
             self.smap_dataset_name = [
                 'P-1', 'S-1', 'E-1', 'E-2', 'E-3', 'E-4', 'E-5', 'E-6', 'E-7',
@@ -458,7 +439,7 @@ class Dataset_Loader():
                 raise IndexError("SMAP ts_num out of range")
             self.series_name = self.smap_dataset_name[self.ts_num]
 
-        # -------- SMD：完整 28 个实体 --------
+
         if self.dataset_key == 'smd':
             self.smd_dataset_name = [
                 'machine-1-1', 'machine-1-2', 'machine-1-3', 'machine-1-4',
@@ -772,14 +753,10 @@ class Dataset_Loader():
         return self.dataset['train_data'].shape, self.dataset['test_data'].shape, perent_anomalies
 
 
-# =========================================================
-# 数据读取函数
-# =========================================================
+
 
 def _fill_invalid_2d_adjacent(x_ct: np.ndarray) -> np.ndarray:
-    """
-    对 [C, T] 做逐通道前向填充 -> 后向填充 -> 0 兜底
-    """
+
     assert x_ct.ndim == 2, "expected [C, T]"
     x = x_ct.copy()
     if np.isfinite(x).all():
@@ -975,7 +952,7 @@ def get_SMAP_MSL_dataset(data_path, ts_num, dataset_name, normalized=True):
 
         anomaly_data = label_df[label_df['chan_id'] == target_name]['anomaly_sequences'].values
         if len(anomaly_data) > 0:
-            # 若同一 chan_id 在 csv 中出现多次，这里把多段范围全部并到一起
+
             labels = np.zeros(dataset['test_data'].shape[1], dtype=np.int64)
             for seq_str in anomaly_data:
                 anomaly_ranges = eval(seq_str)
@@ -1253,11 +1230,7 @@ def get_NAB_dataset(data_path, normalized=True, validation_ratio=0.2):
     return dataset
 
 
-# =========================================================
-# 兼容旧接口的全量物化函数
-# 注意：这些函数会重新物化全部窗口，大数据集上仍可能 OOM。
-# 除非你明确需要旧行为，否则不要在 SWaT/WADI 上调用。
-# =========================================================
+
 
 def sliding_window_generation(dataset, window_size, step_size=1):
     train_samples, reconstruction_label = training_samples_generation(
